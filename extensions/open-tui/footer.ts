@@ -221,7 +221,8 @@ function renderExtensionStatusLines(
 
 	const separator = ` ${theme.fg("dim", "|")} `;
 	const statusText = statuses.map((status) => renderStatusText(theme, status)).join(separator);
-	const line = `${theme.fg("mdLink", glyphs.extensions)} ${statusText}`;
+	// Local fork: no extensions glyph in front of status rows.
+	const line = statusText;
 	return wrapTextWithAnsi(line, width);
 }
 
