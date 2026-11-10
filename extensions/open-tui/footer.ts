@@ -286,14 +286,16 @@ type FooterSide = "left" | "right";
 type FooterLayoutMode = "plain" | "inline";
 
 // Empty built-ins retain their slots so before/after contributions remain visible.
+// Local fork (jrayet/pi-open-tui): row 2 is mirrored so the cumulative cost sits
+// on the left, under the directory, and provider/model is right-aligned.
 const FOOTER_ANCHORS: Record<FooterLayoutMode, Record<1 | 2, Record<FooterSide, readonly FooterBuiltinSegment[]>>> = {
 	plain: {
 		1: { left: ["cwd", "hostname", "sessionName", "git", "runtime", "timer"], right: ["context"] },
-		2: { left: ["model"], right: ["tokens", "cost"] },
+		2: { left: ["tokens", "cost"], right: ["model"] },
 	},
 	inline: {
 		1: { left: ["sessionName", "git"], right: ["cwd", "hostname", "runtime", "timer", "context"] },
-		2: { left: ["model"], right: ["tokens", "cost"] },
+		2: { left: ["tokens", "cost"], right: ["model"] },
 	},
 };
 
