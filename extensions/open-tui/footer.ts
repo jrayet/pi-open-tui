@@ -288,15 +288,15 @@ type FooterLayoutMode = "plain" | "inline";
 // Empty built-ins retain their slots so before/after contributions remain visible.
 // Local fork layout:
 //   row 1 → left: location/git/runtime/timer, right: context | price
-//   row 2 → left: provider/model;  right: nothing
+//   row 2 → left: nothing, right: provider/model (aligned under the price)
 const FOOTER_ANCHORS: Record<FooterLayoutMode, Record<1 | 2, Record<FooterSide, readonly FooterBuiltinSegment[]>>> = {
 	plain: {
 		1: { left: ["cwd", "hostname", "sessionName", "git", "runtime", "timer"], right: ["context", "tokens", "cost"] },
-		2: { left: ["model"], right: [] },
+		2: { left: [], right: ["model"] },
 	},
 	inline: {
 		1: { left: ["sessionName", "git"], right: ["cwd", "hostname", "runtime", "timer", "context", "tokens", "cost"] },
-		2: { left: ["model"], right: [] },
+		2: { left: [], right: ["model"] },
 	},
 };
 
@@ -530,9 +530,9 @@ function renderFooterContent(
 	};
 
 	const contributedBottom = fitContributedRow(2, "plain", builtins, contributions, width, theme);
-	// Local fork: row 2 is the provider/model block only, left-aligned under the
-	// directory. Context and price live on row 1.
-	const inlineBottom = contributedBottom ?? fitInlineLine(modelBlock, "", width, theme);
+	// Local fork: row 2 holds only the provider/model block, right-aligned so it
+	// sits under the price on row 1. Context and price live on row 1.
+	const inlineBottom = contributedBottom ?? fitInlineLine("", modelBlock, width, theme);
 	const line2 = contributedBottom
 		? alignContributedRow(contributedBottom, width, theme)
 		: alignRight(inlineBottom.left, inlineBottom.right, width, theme);
