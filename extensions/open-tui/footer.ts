@@ -426,7 +426,8 @@ function renderFooterContent(
 	if (segments.cwd) {
 		const maxCwd = Math.min(30, Math.max(10, Math.floor(width * 0.4)));
 		const cwd = formatCwd(ctx.sessionManager.getCwd());
-		const cwdPrefix = `${theme.fg("mdLink", glyphs.cwd)} `;
+		// Local fork: no folder glyph in front of the directory.
+		const cwdPrefix = "";
 		const accent = (text: string) => theme.fg("accent", text);
 		leftParts.push({
 			text: `${cwdPrefix}${accent(truncatePath(cwd, maxCwd))}`,
