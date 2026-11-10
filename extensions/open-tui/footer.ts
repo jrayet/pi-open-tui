@@ -525,7 +525,11 @@ function renderFooterContent(
 	builtins.tokens = { text: stats.tokens, priority: 2 };
 	builtins.cost = { text: stats.cost, priority: 1 };
 	const contributedBottom = fitContributedRow(2, "plain", builtins, contributions, width, theme);
-	const inlineBottom = contributedBottom ?? fitInlineLine(modelBlock, statsBlock, width, theme);
+	// Local fork: stats (tokens | cost) occupy the left side of row 2, so cost
+	// sits under the directory, and the provider/model block is right-aligned.
+	// The non-contributed path below is the one that runs when no extension
+	// contributes footer segments, so it needs the same swap as FOOTER_ANCHORS.
+	const inlineBottom = contributedBottom ?? fitInlineLine(statsBlock, modelBlock, width, theme);
 	const line2 = contributedBottom
 		? alignContributedRow(contributedBottom, width, theme)
 		: alignRight(inlineBottom.left, inlineBottom.right, width, theme);
