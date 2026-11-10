@@ -286,16 +286,17 @@ type FooterSide = "left" | "right";
 type FooterLayoutMode = "plain" | "inline";
 
 // Empty built-ins retain their slots so before/after contributions remain visible.
-// Local fork (jrayet/pi-open-tui): row 2 is mirrored so the cumulative cost sits
-// on the left, under the directory, and provider/model is right-aligned.
+// Local fork layout:
+//   row 1 → left: location/git/runtime/timer, right: provider/model
+//   row 2 → left: context, tokens, cost;  right: nothing
 const FOOTER_ANCHORS: Record<FooterLayoutMode, Record<1 | 2, Record<FooterSide, readonly FooterBuiltinSegment[]>>> = {
 	plain: {
-		1: { left: ["cwd", "hostname", "sessionName", "git", "runtime", "timer"], right: ["context"] },
-		2: { left: ["tokens", "cost"], right: ["model"] },
+		1: { left: ["cwd", "hostname", "sessionName", "git", "runtime", "timer"], right: ["model"] },
+		2: { left: ["context", "tokens", "cost"], right: [] },
 	},
 	inline: {
-		1: { left: ["sessionName", "git"], right: ["cwd", "hostname", "runtime", "timer", "context"] },
-		2: { left: ["tokens", "cost"], right: ["model"] },
+		1: { left: ["sessionName", "git"], right: ["cwd", "hostname", "runtime", "timer", "model"] },
+		2: { left: ["context", "tokens", "cost"], right: [] },
 	},
 };
 
@@ -400,6 +401,20 @@ function renderFooterContent(
 		? getExtensionSegments().filter((segment) => visibleWidth(segment.text) > 0)
 		: [];
 
+	// Local fork: the provider/model block lives on row 1 (the slot context used
+	// to occupy), so it has to be built before row 1 is assembled.
+	const modelParts: string[] = [];
+	modelParts.push(theme.fg("mdLink", glyphs.model));
+	if (meta.provider && meta.provider !== "Unknown") {
+		modelParts.push(theme.fg(providerColor(ctx.model?.provider ?? "none"), meta.provider));
+	}
+	modelParts.push(theme.fg("text", meta.model));
+	if (meta.effort && meta.effort !== "off") {
+		modelParts.push(theme.fg(effortColor(meta.effort), `${glyphs.thinking} ${meta.effort}`));
+	}
+	const modelBlock = modelParts.join(theme.fg("dim", " · "));
+	builtins.model = { text: modelBlock, priority: 0 };
+
 	const leftParts: PrioritizedSegment[] = [];
 	const inlineTopLeftParts: PrioritizedSegment[] = [];
 	const inlineTopRightParts: PrioritizedSegment[] = [];
@@ -487,19 +502,18 @@ function renderFooterContent(
 	}
 	const allParts: PrioritizedSegment[] = [...leftParts];
 	if (contextText) {
-		// Context sheds with runtime, before git/session/host/timer/cwd.
-		allParts.push({ text: contextText, compactText: contextCompact, priority: 0 });
-		// Context stays at the far right; cwd is the first item in this group.
-		inlineTopRightParts.push({ text: contextText, compactText: contextCompact, priority: 0 });
-		builtins.context = allParts.at(-1)!;
+		// Local fork: context is no longer a row 1 left segment. It heads row 2,
+		// to the left of the token/cost stats.
+		inlineTopRightParts.push({ text: modelBlock, priority: 0 });
+		builtins.context = { text: contextText, compactText: contextCompact, priority: 0 };
 	}
 
 	const fitted = fitSegmentsByPriority(allParts, width, theme.fg("dim", "..."));
-	const fittedContext = contextText ? fitted.pop() ?? "" : "";
+	const fittedContext = contextText ?? "";
 	const contributedTop = fitContributedRow(1, "plain", builtins, contributions, width, theme);
 	const line1 = contributedTop
 		? alignContributedRow(contributedTop, width, theme)
-		: alignRight(fitted.filter(Boolean).join(" "), fittedContext, width, theme);
+		: alignRight(fitted.filter(Boolean).join(" "), modelBlock, width, theme);
 
 	const inlineLeftBudget = Math.floor(width * 0.45);
 	const inlineTopLeft = fitInlineSegments(inlineTopLeftParts, inlineLeftBudget, theme);
@@ -509,27 +523,15 @@ function renderFooterContent(
 		right: fitInlineSegments(inlineTopRightParts, inlineRightBudget, theme),
 	};
 
-	const modelParts: string[] = [];
-	modelParts.push(theme.fg("mdLink", glyphs.model));
-	if (meta.provider && meta.provider !== "Unknown") {
-		modelParts.push(theme.fg(providerColor(ctx.model?.provider ?? "none"), meta.provider));
-	}
-	modelParts.push(theme.fg("text", meta.model));
-	if (meta.effort && meta.effort !== "off") {
-		modelParts.push(theme.fg(effortColor(meta.effort), `${glyphs.thinking} ${meta.effort}`));
-	}
-	const modelBlock = modelParts.join(theme.fg("dim", " · "));
 	const stats = renderStatsSegments(theme, totals, glyphs, segments);
 	const statsBlock = [stats.tokens, stats.cost].filter(Boolean).join(` ${theme.fg("dim", "|")} `);
-	builtins.model = { text: modelBlock, priority: 0 };
 	builtins.tokens = { text: stats.tokens, priority: 2 };
 	builtins.cost = { text: stats.cost, priority: 1 };
 	const contributedBottom = fitContributedRow(2, "plain", builtins, contributions, width, theme);
-	// Local fork: stats (tokens | cost) occupy the left side of row 2, so cost
-	// sits under the directory, and the provider/model block is right-aligned.
-	// The non-contributed path below is the one that runs when no extension
-	// contributes footer segments, so it needs the same swap as FOOTER_ANCHORS.
-	const inlineBottom = contributedBottom ?? fitInlineLine(statsBlock, modelBlock, width, theme);
+	// Local fork: row 2 starts with context, then the token/cost stats. Nothing
+	// is right-aligned on this row any more.
+	const rowTwoLeft = [fittedContext, statsBlock].filter(Boolean).join(theme.fg("dim", " | "));
+	const inlineBottom = contributedBottom ?? fitInlineLine(rowTwoLeft, "", width, theme);
 	const line2 = contributedBottom
 		? alignContributedRow(contributedBottom, width, theme)
 		: alignRight(inlineBottom.left, inlineBottom.right, width, theme);
