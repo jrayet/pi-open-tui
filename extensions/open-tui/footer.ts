@@ -529,18 +529,22 @@ function renderFooterContent(
 		right: fitInlineSegments(inlineTopRightParts, inlineRightBudget, theme),
 	};
 
+	// Local fork: the first extension status row (e.g. pi-listen's "MIC STREAM")
+	// is promoted onto row 2's left side instead of sitting on its own row below,
+	// so it lands one row higher. Any overflow keeps its own rows underneath.
+	const statusRows = segments.extensionStatuses
+		? renderExtensionStatusLines(theme, footerData.getExtensionStatuses(), glyphs, width)
+		: [];
+	const promotedStatus = statusRows[0] ?? "";
 	const contributedBottom = fitContributedRow(2, "plain", builtins, contributions, width, theme);
-	// Local fork: row 2 holds only the provider/model block, right-aligned so it
-	// sits under the price on row 1. Context and price live on row 1.
-	const inlineBottom = contributedBottom ?? fitInlineLine("", modelBlock, width, theme);
+	// Local fork: row 2 is provider/model right-aligned, under the price on row 1.
+	const inlineBottom = contributedBottom ?? fitInlineLine(promotedStatus, modelBlock, width, theme);
 	const line2 = contributedBottom
 		? alignContributedRow(contributedBottom, width, theme)
 		: alignRight(inlineBottom.left, inlineBottom.right, width, theme);
 	const mainLines: [string, string] = [line1, line2]
 		.map((line) => truncateToWidth(line, width, theme.fg("dim", "..."))) as [string, string];
-	const extensionLines = segments.extensionStatuses
-		? renderExtensionStatusLines(theme, footerData.getExtensionStatuses(), glyphs, width)
-		: [];
+	const extensionLines = statusRows.slice(1);
 	return { mainLines, inlineLines: { top: inlineTop, bottom: inlineBottom }, extensionLines };
 }
 
