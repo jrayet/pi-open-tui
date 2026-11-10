@@ -287,16 +287,16 @@ type FooterLayoutMode = "plain" | "inline";
 
 // Empty built-ins retain their slots so before/after contributions remain visible.
 // Local fork layout:
-//   row 1 → left: location/git/runtime/timer, right: provider/model
-//   row 2 → left: context, tokens, cost;  right: nothing
+//   row 1 → left: location/git/runtime/timer, right: context | price
+//   row 2 → left: provider/model;  right: nothing
 const FOOTER_ANCHORS: Record<FooterLayoutMode, Record<1 | 2, Record<FooterSide, readonly FooterBuiltinSegment[]>>> = {
 	plain: {
-		1: { left: ["cwd", "hostname", "sessionName", "git", "runtime", "timer"], right: ["model"] },
-		2: { left: ["context", "tokens", "cost"], right: [] },
+		1: { left: ["cwd", "hostname", "sessionName", "git", "runtime", "timer"], right: ["context", "tokens", "cost"] },
+		2: { left: ["model"], right: [] },
 	},
 	inline: {
-		1: { left: ["sessionName", "git"], right: ["cwd", "hostname", "runtime", "timer", "model"] },
-		2: { left: ["context", "tokens", "cost"], right: [] },
+		1: { left: ["sessionName", "git"], right: ["cwd", "hostname", "runtime", "timer", "context", "tokens", "cost"] },
+		2: { left: ["model"], right: [] },
 	},
 };
 
@@ -401,8 +401,8 @@ function renderFooterContent(
 		? getExtensionSegments().filter((segment) => visibleWidth(segment.text) > 0)
 		: [];
 
-	// Local fork: the provider/model block lives on row 1 (the slot context used
-	// to occupy), so it has to be built before row 1 is assembled.
+	// Local fork: provider/model moves to row 2, so row 1 can carry
+	// context | price on its right side. Build the pieces early.
 	const modelParts: string[] = [];
 	modelParts.push(theme.fg("mdLink", glyphs.model));
 	if (meta.provider && meta.provider !== "Unknown") {
@@ -414,6 +414,11 @@ function renderFooterContent(
 	}
 	const modelBlock = modelParts.join(theme.fg("dim", " · "));
 	builtins.model = { text: modelBlock, priority: 0 };
+
+	const stats = renderStatsSegments(theme, totals, glyphs, segments);
+	const statsBlock = [stats.tokens, stats.cost].filter(Boolean).join(` ${theme.fg("dim", "|")} `);
+	builtins.tokens = { text: stats.tokens, priority: 2 };
+	builtins.cost = { text: stats.cost, priority: 1 };
 
 	const leftParts: PrioritizedSegment[] = [];
 	const inlineTopLeftParts: PrioritizedSegment[] = [];
@@ -502,18 +507,19 @@ function renderFooterContent(
 	}
 	const allParts: PrioritizedSegment[] = [...leftParts];
 	if (contextText) {
-		// Local fork: context is no longer a row 1 left segment. It heads row 2,
-		// to the left of the token/cost stats.
-		inlineTopRightParts.push({ text: modelBlock, priority: 0 });
+		// Local fork: context sits on row 1's right side, immediately left of the
+		// price. Row 2 is left-only and carries the provider/model block.
+		inlineTopRightParts.push({ text: contextText, compactText: contextCompact, priority: 0 });
 		builtins.context = { text: contextText, compactText: contextCompact, priority: 0 };
 	}
 
 	const fitted = fitSegmentsByPriority(allParts, width, theme.fg("dim", "..."));
 	const fittedContext = contextText ?? "";
+	const rowOneRight = [fittedContext, statsBlock].filter(Boolean).join(theme.fg("dim", " | "));
 	const contributedTop = fitContributedRow(1, "plain", builtins, contributions, width, theme);
 	const line1 = contributedTop
 		? alignContributedRow(contributedTop, width, theme)
-		: alignRight(fitted.filter(Boolean).join(" "), modelBlock, width, theme);
+		: alignRight(fitted.filter(Boolean).join(" "), rowOneRight, width, theme);
 
 	const inlineLeftBudget = Math.floor(width * 0.45);
 	const inlineTopLeft = fitInlineSegments(inlineTopLeftParts, inlineLeftBudget, theme);
@@ -523,15 +529,10 @@ function renderFooterContent(
 		right: fitInlineSegments(inlineTopRightParts, inlineRightBudget, theme),
 	};
 
-	const stats = renderStatsSegments(theme, totals, glyphs, segments);
-	const statsBlock = [stats.tokens, stats.cost].filter(Boolean).join(` ${theme.fg("dim", "|")} `);
-	builtins.tokens = { text: stats.tokens, priority: 2 };
-	builtins.cost = { text: stats.cost, priority: 1 };
 	const contributedBottom = fitContributedRow(2, "plain", builtins, contributions, width, theme);
-	// Local fork: row 2 starts with context, then the token/cost stats. Nothing
-	// is right-aligned on this row any more.
-	const rowTwoLeft = [fittedContext, statsBlock].filter(Boolean).join(theme.fg("dim", " | "));
-	const inlineBottom = contributedBottom ?? fitInlineLine(rowTwoLeft, "", width, theme);
+	// Local fork: row 2 is the provider/model block only, left-aligned under the
+	// directory. Context and price live on row 1.
+	const inlineBottom = contributedBottom ?? fitInlineLine(modelBlock, "", width, theme);
 	const line2 = contributedBottom
 		? alignContributedRow(contributedBottom, width, theme)
 		: alignRight(inlineBottom.left, inlineBottom.right, width, theme);
